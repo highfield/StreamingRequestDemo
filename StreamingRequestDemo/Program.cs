@@ -5,8 +5,6 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace StreamingRequestDemo
@@ -50,7 +48,7 @@ namespace StreamingRequestDemo
                 new Uri("https://localhost:5001/longrunning/demo1"),
                 s =>
                 {
-                    double[] riga = JsonSerializer.Deserialize<double[]>(s);
+                    double[] riga = System.Text.Json.JsonSerializer.Deserialize<double[]>(s);
                     count++;
                     if ((count % 1000) == 0)
                     {
@@ -185,7 +183,11 @@ namespace StreamingRequestDemo
             public int Index { get; set; }
 
             public string _json;
-            public TValue GetValue<TValue>() => JsonSerializer.Deserialize<TValue>(this._json);
+#if NETSTANDARD2_0 || NETCOREAPP2_2
+            public TValue GetValue<TValue>() => Newtonsoft.Json.JsonConvert.DeserializeObject<TValue>(this._json);
+#else
+            public TValue GetValue<TValue>() => System.Text.Json.JsonSerializer.Deserialize<TValue>(this._json);
+#endif
         }
 
         static async Task<long> Downloader2(
@@ -194,6 +196,9 @@ namespace StreamingRequestDemo
             int bufferSize = 0x10000
             )
         {
+            const byte StartOfField = 0x01; //SOH
+            const byte EndOfContent = 0x03; //ETX
+
             using var client = new HttpClient();
 
             client.DefaultRequestHeaders.Accept.Clear();
@@ -232,13 +237,13 @@ namespace StreamingRequestDemo
                     }
                 }
 
-                //isola i vari segmenti in base al carattere CR
+                //isola i vari segmenti in base al carattere di fine riga
                 int lastIx = 0;
                 for (int ix = 0; ix < bytesInBuffer; ix++)
                 {
-                    if (buffer[ix] == '\r')
+                    if (buffer[ix] == EndOfContent)
                     {
-                        if (buffer[lastIx] == '\a')
+                        if (buffer[lastIx] == StartOfField)
                         {
                             cb.FieldName = Encoding.UTF8.GetString(buffer, lastIx + 1, ix - lastIx - 1);
                             cb.Index = -1;
