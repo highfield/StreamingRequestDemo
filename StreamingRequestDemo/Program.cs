@@ -149,6 +149,10 @@ namespace StreamingRequestDemo
                             Console.WriteLine($"nato={cb.GetValue<DateTime>()}");
                             break;
 
+                        case "campo_nullo":
+                            Console.WriteLine($"campo_nullo={cb.GetValue<string>()}; isNull={cb.GetValue<string>() == null}");
+                            break;
+
                         case "count":
                             Console.WriteLine($"count={cb.GetValue<int>()}");
                             break;
@@ -186,7 +190,8 @@ namespace StreamingRequestDemo
 
         static async Task<long> Downloader2(
             Uri uri,
-            Action<IReadOnlyCallback> callback
+            Action<IReadOnlyCallback> callback,
+            int bufferSize = 0x10000
             )
         {
             using var client = new HttpClient();
@@ -199,7 +204,7 @@ namespace StreamingRequestDemo
 
             var stream = await client.GetStreamAsync(uri);
 
-            var buffer = new byte[0x10000];
+            var buffer = new byte[bufferSize];
             int bytesInBuffer = 0;
             long totalBytesRead = 0;
             var cb = new Callback();
